@@ -1,0 +1,153 @@
+{
+  "_note": "ゲームの設定（キャラ・モンスター・ルート・ごほうび・セリフ）。セリフの {漢字|かんじ} はふりがな付きで表示される。{HERO}=主人公の名前、{I}=ぼく/わたし。",
+
+  "heroes": {
+    "keito": { "name": "ケイト", "img": "hero_keito", "I": "ぼく", "color": "#3b82f6" },
+    "yuuri": { "name": "ユウリ", "img": "hero_yuuri", "I": "わたし", "color": "#ec4899" }
+  },
+
+  "people": {
+    "king": { "name": "{王|おう}さま", "img": "king" },
+    "villager": { "name": "{村人|むらびと}", "img": "villager" },
+    "fairy": { "name": "{森|もり}のようせい", "img": "p_fairy" },
+    "scholar": { "name": "{旅|たび}の{学者|がくしゃ}", "img": "villager" }
+  },
+
+  "monsters": {
+    "m_slime": { "name": "スライム", "img": "m_slime" },
+    "m_bat": { "name": "コウモリン", "img": "m_bat" },
+    "m_mushroom": { "name": "キノコロン", "img": "m_mushroom" },
+    "m_goblin": { "name": "ゴブリン", "img": "m_goblin" },
+    "m_imp": { "name": "インプ", "img": "m_imp" },
+    "m_treant": { "name": "おばけの木", "img": "m_treant" },
+    "m_ghost": { "name": "ゴースト", "img": "m_ghost" },
+    "m_skeleton": { "name": "ガイコツ{兵|へい}", "img": "m_skeleton" },
+    "m_knight": { "name": "やみのよろい", "img": "m_knight" },
+    "m_dragon": { "name": "レッドドラゴン", "img": "m_dragon" },
+    "goblin_king": { "name": "ゴブリンキング", "img": "goblin_king", "boss": true },
+    "dark_wolf": { "name": "ダークウルフ", "img": "dark_wolf", "boss": true },
+    "guardian": { "name": "{古代|こだい}の{守護者|しゅごしゃ}", "img": "guardian", "boss": true },
+    "maou": { "name": "{魔王|まおう}ヨメナイン", "img": "maou", "boss": true }
+  },
+
+  "_areas": "ふつうの冒険（1〜40問）。10問ずつエリアが変わる。hits=たおすのに必要な正解数",
+  "areas": [
+    { "name": "はじまりの{草原|そうげん}", "bg": "bg_plains", "bgm": "field",
+      "waves": [ { "pool": ["m_slime", "m_bat"], "hits": 2 }, { "pool": ["m_mushroom", "m_slime"], "hits": 2 }, { "pool": ["m_bat", "m_mushroom"], "hits": 3 }, { "pool": ["m_goblin"], "hits": 3, "elite": true } ] },
+    { "name": "{風|かぜ}の{村|むら}はずれ", "bg": "bg_village", "bgm": "field",
+      "waves": [ { "pool": ["m_goblin", "m_imp"], "hits": 2 }, { "pool": ["m_mushroom", "m_imp"], "hits": 2 }, { "pool": ["m_goblin", "m_bat"], "hits": 3 }, { "pool": ["m_treant"], "hits": 3, "elite": true } ] },
+    { "name": "まよいの{森|もり}", "bg": "bg_forest", "bgm": "dungeon",
+      "waves": [ { "pool": ["m_ghost", "m_bat"], "hits": 2 }, { "pool": ["m_treant", "m_ghost"], "hits": 2 }, { "pool": ["m_imp", "m_ghost"], "hits": 3 }, { "pool": ["m_skeleton"], "hits": 3, "elite": true } ] },
+    { "name": "たそがれの{荒野|こうや}", "bg": "bg_ruins", "bgm": "dungeon",
+      "waves": [ { "pool": ["m_skeleton", "m_imp"], "hits": 2 }, { "pool": ["m_knight", "m_skeleton"], "hits": 2 }, { "pool": ["m_knight", "m_ghost"], "hits": 3 }, { "pool": ["m_dragon"], "hits": 3, "elite": true } ] }
+  ],
+
+  "_routes": "まちがえたあとに入る10問の特別ダンジョンと、40問ぜんぶ正解したときの魔王城",
+  "routes": {
+    "goblin": {
+      "name": "ゴブリンどうくつ", "bg": "bg_cave", "introBg": "bg_village", "bgm": "dungeon",
+      "minions": [ { "pool": ["m_goblin"], "hits": 2 }, { "pool": ["m_bat", "m_goblin"], "hits": 2 } ],
+      "boss": "goblin_king", "bossHits": 6,
+      "intro": [
+        ["villager", "たいへん！ ゴブリンたちが {村|むら}の {食|た}べものを うばって いったの！"],
+        ["hero", "まかせて！ {I}が とりかえして くる！"]
+      ],
+      "bossTalk": [["boss", "ゲヘヘ！ {食|た}べものは ぜんぶ オレさまの ものだ！"], ["hero", "みんなの {食|た}べものを かえせ！"]],
+      "ending": [
+        ["villager", "ありがとう、{勇者|ゆうしゃ}さま！ {村|むら}に {平和|へいわ}が もどったわ！"]
+      ],
+      "endTitle": "{村|むら}に {平和|へいわ}が もどった！", "endBg": "bg_village", "region": "村"
+    },
+    "forest": {
+      "name": "のろいの{森|もり}", "bg": "bg_forest", "introBg": "bg_forest", "bgm": "dungeon",
+      "minions": [ { "pool": ["m_ghost"], "hits": 2 }, { "pool": ["m_treant", "m_ghost"], "hits": 2 } ],
+      "boss": "dark_wolf", "bossHits": 6,
+      "intro": [
+        ["fairy", "たすけて！ {森|もり}が のろいで まっくらに なっちゃったの！"],
+        ["hero", "{I}に まかせて！ のろいを といて みせる！"]
+      ],
+      "bossTalk": [["boss", "グルルル…… この {森|もり}は オレさまの ものだ……！"], ["hero", "{森|もり}を かえして もらうよ！"]],
+      "ending": [
+        ["fairy", "{森|もり}に {光|ひかり}が もどったわ！ ほんとうに ありがとう！"]
+      ],
+      "endTitle": "{森|もり}に {光|ひかり}が もどった！", "endBg": "bg_plains", "region": "森"
+    },
+    "ruins": {
+      "name": "{古代|こだい}いせき", "bg": "bg_ruins", "introBg": "bg_ruins", "bgm": "dungeon",
+      "minions": [ { "pool": ["m_skeleton"], "hits": 2 }, { "pool": ["m_knight", "m_skeleton"], "hits": 2 } ],
+      "boss": "guardian", "bossHits": 6,
+      "intro": [
+        ["scholar", "たいへんだ！ {古代|こだい}の いせきで {守護者|しゅごしゃ}が あばれだした！"],
+        ["scholar", "このままでは {町|まち}まで こわされて しまう！"],
+        ["hero", "{I}が とめて くる！"]
+      ],
+      "bossTalk": [["boss", "……シンニュウシャ…… ハイジョ スル……"], ["hero", "{町|まち}は {I}が まもる！"]],
+      "ending": [
+        ["scholar", "{守護者|しゅごしゃ}が しずかに ねむった……！ {町|まち}は すくわれた！"]
+      ],
+      "endTitle": "{町|まち}が すくわれた！", "endBg": "bg_ruins", "region": "町"
+    },
+    "maou": {
+      "name": "{魔王城|まおうじょう}", "bg": "bg_castle", "bgm": "boss",
+      "boss": "maou", "bossHits": 10,
+      "intro": [
+        ["boss", "ククク…… よくぞ ここまで きたな、{HERO}！"],
+        ["boss", "わしは {魔王|まおう}ヨメナイン！ {世界中|せかいじゅう}の {漢字|かんじ}を {読|よ}めなく してやるのだ！"],
+        ["hero", "そうは させない！ {漢字|かんじ}パワー、ぜんかい！"]
+      ],
+      "rage": [["boss", "おのれ……！ ならば わしの {本気|ほんき}を {見|み}せてやる！！"]],
+      "defeat": [["boss", "ば、ばかな…… わしの のろいが…… とけていく……！"]],
+      "ending": [
+        ["king", "ようやった、{HERO}！ そなたこそ {真|しん}の {漢字|かんじ}の{勇者|ゆうしゃ}じゃ！"],
+        ["king", "{世界|せかい}に {平和|へいわ}が おとずれた！ みなの もの、{勇者|ゆうしゃ}を たたえよ！"]
+      ]
+    }
+  },
+
+  "intro": [
+    ["king", "{勇者|ゆうしゃ}{HERO}よ！ よくぞ きてくれた！"],
+    ["king", "{世界|せかい}を おおう {悪|あく}の {力|ちから}が {強|つよ}く なって おる！"],
+    ["king", "{漢字|かんじ}パワーを {集|あつ}め、{魔王|まおう}を たおして {世界|せかい}を すくうのじゃ！"],
+    ["hero", "まかせて！ {I}が {世界|せかい}を すくって みせる！"]
+  ],
+
+  "rarities": {
+    "COMMON":    { "label": "COMMON",    "color": "#9ca3af", "weight": 46, "stars": 1 },
+    "RARE":      { "label": "RARE",      "color": "#38bdf8", "weight": 32, "stars": 2 },
+    "EPIC":      { "label": "EPIC",      "color": "#c084fc", "weight": 16, "stars": 3 },
+    "LEGENDARY": { "label": "LEGENDARY", "color": "#fbbf24", "weight": 6,  "stars": 4 }
+  },
+
+  "_rewards": "演出だけのごほうび。問題のむずかしさや正解には影響しない",
+  "weapons": [
+    { "id": "wood", "name": "きの つるぎ", "emoji": "🗡️", "rarity": "COMMON" },
+    { "id": "iron", "name": "てつの つるぎ", "emoji": "⚔️", "rarity": "COMMON" },
+    { "id": "ice", "name": "{氷結|ひょうけつ}の{杖|つえ}", "img": "w_ice", "rarity": "RARE" },
+    { "id": "bow", "name": "{聖|せい}なる{弓|ゆみ}", "img": "w_bow", "rarity": "RARE" },
+    { "id": "flame", "name": "{炎帝|えんてい}の{剣|けん}", "img": "w_flame", "rarity": "EPIC" },
+    { "id": "mjolnir", "name": "{雷神|らいじん}の{槌|つち}", "img": "w_mjolnir", "rarity": "EPIC" },
+    { "id": "durandal", "name": "デュランダル", "img": "w_durandal", "rarity": "EPIC" },
+    { "id": "excalibur", "name": "エクスカリバー", "img": "w_excalibur", "rarity": "LEGENDARY" },
+    { "id": "gungnir", "name": "グングニル", "img": "w_gungnir", "rarity": "LEGENDARY" },
+    { "id": "amenomurakumo", "name": "{天叢雲剣|あめのむらくものつるぎ}", "img": "w_amenomurakumo", "rarity": "LEGENDARY" }
+  ],
+  "pets": [
+    { "id": "slime", "name": "スライム", "img": "p_slime", "rarity": "COMMON" },
+    { "id": "wolf", "name": "{白|しろ}オオカミ", "img": "p_wolf", "rarity": "RARE" },
+    { "id": "cat", "name": "ねこまた", "img": "p_cat", "rarity": "RARE" },
+    { "id": "golem", "name": "ちびゴーレム", "img": "p_golem", "rarity": "RARE" },
+    { "id": "fairy", "name": "ようせい", "img": "p_fairy", "rarity": "EPIC" },
+    { "id": "spirit", "name": "{光|ひかり}の{精霊|せいれい}", "img": "p_spirit", "rarity": "EPIC" },
+    { "id": "dragon", "name": "でんせつの ドラゴン", "img": "p_dragon", "rarity": "LEGENDARY" },
+    { "id": "phoenix", "name": "フェニックス", "img": "p_phoenix", "rarity": "LEGENDARY" }
+  ],
+  "elements": [
+    { "id": "fire", "name": "{炎|ほのお}", "emoji": "🔥", "color": "#f97316", "move": "フレイム", "rarity": "RARE" },
+    { "id": "water", "name": "{水|みず}", "emoji": "💧", "color": "#38bdf8", "move": "アクア", "rarity": "RARE" },
+    { "id": "thunder", "name": "{雷|かみなり}", "emoji": "⚡", "color": "#facc15", "move": "サンダー", "rarity": "RARE" },
+    { "id": "ice", "name": "{氷|こおり}", "emoji": "❄️", "color": "#a5f3fc", "move": "ブリザード", "rarity": "RARE" },
+    { "id": "wind", "name": "{風|かぜ}", "emoji": "🌪️", "color": "#4ade80", "move": "サイクロン", "rarity": "RARE" },
+    { "id": "light", "name": "{光|ひかり}", "emoji": "✨", "color": "#fde68a", "move": "シャイニング", "rarity": "EPIC" },
+    { "id": "dark", "name": "{闇|やみ}", "emoji": "🌑", "color": "#a78bfa", "move": "ダークネス", "rarity": "EPIC" }
+  ]
+}

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#140b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="あそんでいたら 漢字が おぼえられる！ 4たくクイズRPG『漢字の勇者ケイト』">
+<title>漢字の勇者ケイト</title>
+<link rel="icon" href="assets/img/icon.png">
+<link rel="apple-touch-icon" href="assets/img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Klee+One:wght@600&family=M+PLUS+Rounded+1c:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ローディング -->
+  <section id="screen-loading" class="screen active">
+    <div class="loading-box">
+      <div class="loading-sword">⚔️</div>
+      <p id="loading-text">勇者を しょうかん中……</p>
+      <div class="loading-bar"><i id="loading-fill"></i></div>
+    </div>
+  </section>
+
+  <!-- タイトル -->
+  <section id="screen-title" class="screen">
+    <div class="bg" data-bg="bg_plains"></div>
+    <div class="title-sparkles"></div>
+    <div class="title-wrap">
+      <div class="title-heroes">
+        <img src="assets/img/hero_keito.webp" alt="" class="title-hero left">
+        <img src="assets/img/hero_yuuri.webp" alt="" class="title-hero right">
+      </div>
+      <h1 class="logo">
+        <span class="logo-sub">あそんで おぼえる！</span>
+        <span class="logo-main"><ruby>漢字<rt>かんじ</rt></ruby>の<ruby>勇者<rt>ゆうしゃ</rt></ruby></span>
+        <span class="logo-name">ケイト</span>
+      </h1>
+      <button id="btn-start" class="btn btn-mega pulse">▶ ゲームスタート</button>
+      <p class="title-note">🔊 音が出ます</p>
+    </div>
+  </section>
+
+  <!-- 主人公えらび -->
+  <section id="screen-hero" class="screen">
+    <div class="bg" data-bg="bg_throne"></div>
+    <div class="screen-inner">
+      <h2 class="screen-head">だれで ぼうけんする？</h2>
+      <div class="hero-pick">
+        <button class="hero-card" data-hero="keito">
+          <img src="assets/img/hero_keito.webp" alt="ケイト">
+          <span class="hero-name">ケイト</span>
+        </button>
+        <button class="hero-card" data-hero="yuuri">
+          <img src="assets/img/hero_yuuri.webp" alt="ユウリ">
+          <span class="hero-name">ユウリ</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 学年えらび -->
+  <section id="screen-grade" class="screen">
+    <div class="bg" data-bg="bg_throne"></div>
+    <div class="screen-inner">
+      <img id="grade-hero" class="grade-hero" src="assets/img/hero_keito.webp" alt="">
+      <h2 class="screen-head"><span id="grade-hero-name">ケイト</span>は <ruby>何<rt>なん</rt></ruby><ruby>年生<rt>ねんせい</rt></ruby>？</h2>
+      <div class="grade-grid">
+        <button class="grade-btn" data-grade="1"><b>1</b>ねんせい</button>
+        <button class="grade-btn" data-grade="2"><b>2</b>ねんせい</button>
+        <button class="grade-btn" data-grade="3"><b>3</b>ねんせい</button>
+        <button class="grade-btn" data-grade="4"><b>4</b>ねんせい</button>
+        <button class="grade-btn" data-grade="5"><b>5</b>ねんせい</button>
+        <button class="grade-btn" data-grade="6"><b>6</b>ねんせい</button>
+      </div>
+      <button class="btn btn-back" data-back="hero">◀ もどる</button>
+    </div>
+  </section>
+
+  <!-- 会話シーン -->
+  <section id="screen-story" class="screen">
+    <div class="bg" id="story-bg"></div>
+    <div class="story-stage">
+      <img id="story-portrait" class="story-portrait" alt="">
+    </div>
+    <div class="story-box" id="story-box">
+      <div class="story-name" id="story-name"></div>
+      <p class="story-text" id="story-text"></p>
+      <div class="story-next">▼ タップ</div>
+    </div>
+  </section>
+
+  <!-- バトル -->
+  <section id="screen-battle" class="screen">
+    <div class="bg" id="battle-bg"></div>
+    <div class="battle-fx-bg" id="battle-fx-bg"></div>
+
+    <header class="hud">
+      <div class="hud-q"><span id="hud-qno">第1問</span><small id="hud-area"></small></div>
+      <div class="hud-power">
+        <div class="power-label">漢字パワー</div>
+        <div class="power-bar"><i id="power-fill"></i></div>
+        <div class="power-num" id="power-num">0</div>
+      </div>
+    </header>
+
+    <div class="field" id="field">
+      <div class="enemy-hud" id="enemy-hud">
+        <div class="enemy-name" id="enemy-name"></div>
+        <div class="enemy-hp"><i id="enemy-hp-fill"></i><div class="enemy-hp-segs" id="enemy-hp-segs"></div></div>
+      </div>
+      <div class="magic-circle" id="magic-circle"></div>
+      <div class="enemy" id="enemy"><img id="enemy-img" alt=""></div>
+      <div class="party">
+        <div class="hero-unit">
+          <img id="hero-img" alt="">
+          <div class="hero-lv" id="hero-lv">Lv.1</div>
+        </div>
+        <img id="pet-img" class="pet-img" alt="">
+      </div>
+      <div class="hero-hp"><span>HP</span><div class="hp-bar"><i id="hero-hp-fill"></i></div></div>
+      <div class="combo" id="combo"></div>
+      <div class="equip" id="equip"></div>
+      <div class="fx-layer" id="fx-layer"></div>
+    </div>
+
+    <div class="quiz" id="quiz">
+      <div class="q-card" id="q-card">
+        <span class="q-type" id="q-type">よみ</span>
+        <div class="q-big" id="q-big"></div>
+        <div class="q-sub" id="q-sub"></div>
+        <div class="q-prompt" id="q-prompt"></div>
+      </div>
+      <div class="answers" id="answers">
+        <button class="ans" data-i="0"><span class="ans-mark">A</span><span class="ans-text"></span></button>
+        <button class="ans" data-i="1"><span class="ans-mark">B</span><span class="ans-text"></span></button>
+        <button class="ans" data-i="2"><span class="ans-mark">C</span><span class="ans-text"></span></button>
+        <button class="ans" data-i="3"><span class="ans-mark">D</span><span class="ans-text"></span></button>
+      </div>
+    </div>
+
+    <!-- まちがえたときの解説 -->
+    <div class="explain" id="explain">
+      <div class="explain-card">
+        <div class="explain-head">ざんねん！</div>
+        <div class="explain-answer">せいかいは <b id="explain-answer"></b></div>
+        <p class="explain-text" id="explain-text"></p>
+        <button class="btn btn-next" id="btn-next">つぎの もんだいへ ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- リザルト -->
+  <section id="screen-result" class="screen">
+    <div class="bg" id="result-bg"></div>
+    <div class="result-rays" id="result-rays"></div>
+    <div class="result-card" id="result-card"></div>
+    <div class="result-actions">
+      <button class="btn btn-mega" id="btn-again">もう一回 あそぶ</button>
+      <button class="btn btn-sub" id="btn-title">タイトルへ</button>
+    </div>
+  </section>
+
+  <!-- ガチャ演出 -->
+  <div class="overlay" id="gacha">
+    <div class="gacha-rays"></div>
+    <div class="gacha-stage">
+      <div class="gacha-kind" id="gacha-kind"></div>
+      <img class="gacha-chest" id="gacha-chest" src="assets/img/chest.webp" alt="">
+      <div class="gacha-item" id="gacha-item"></div>
+      <div class="gacha-rarity" id="gacha-rarity"></div>
+      <div class="gacha-name" id="gacha-name"></div>
+      <div class="gacha-new" id="gacha-new">NEW!!</div>
+      <div class="gacha-tap">タップで つぎへ</div>
+    </div>
+  </div>
+
+  <!-- 必殺技カットイン -->
+  <div class="overlay cutin" id="cutin">
+    <div class="cutin-band">
+      <img id="cutin-hero" alt="">
+      <div class="cutin-text"><small id="cutin-small">ひっさつわざ</small><b id="cutin-name"></b></div>
+    </div>
+  </div>
+
+  <!-- 大きなお知らせ（エリア名・WARNINGなど） -->
+  <div class="overlay banner" id="banner"><div class="banner-inner" id="banner-inner"></div></div>
+
+  <div class="flash" id="flash"></div>
+
+  <button id="btn-sound" class="btn-sound" aria-label="音の オン・オフ">🔊</button>
+
+  <div class="rotate-note">
+    <div>📱</div>
+    <p>スマホを たてに してね！</p>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

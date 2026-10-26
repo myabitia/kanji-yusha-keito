@@ -1,0 +1,26 @@
+{
+ "note": "tools/build_questions.mjs が data/source/*.txt から自動生成。直接編集せず source を直して再生成してください。",
+ "count": 4127,
+ "byGrade": {
+  "1": 374,
+  "2": 450,
+  "3": 536,
+  "4": 842,
+  "5": 905,
+  "6": 1020
+ },
+ "byType": {
+  "reading": 614,
+  "writing": 616,
+  "fill": 611,
+  "wrongKanji": 608,
+  "kanjiUse": 612,
+  "meaning": 610,
+  "sentenceReading": 85,
+  "sentenceWriting": 84,
+  "okurigana": 172,
+  "similar": 37,
+  "combine": 48,
+  "usage": 30
+ }
+}
