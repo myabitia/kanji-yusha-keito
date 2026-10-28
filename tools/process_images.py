@@ -21,6 +21,7 @@ PICK = {
     "p_dragon": "b", "p_phoenix": "a", "p_slime": "a", "p_wolf": "b", "p_fairy": "a", "p_cat": "a", "p_golem": "a", "p_spirit": "a",
     "w_excalibur": ("b", (0.405, 0.0, 0.615, 1.0)), "w_gungnir": "a", "w_amenomurakumo": ("@w_excalibur_c", (0.614, 0.06, 0.735, 0.885)), "w_durandal": "a", "w_mjolnir": "a",
     "w_flame": "b", "w_ice": "a", "w_bow": "a", "chest": "a",
+    "p_leviathan": "a", "r_crystal_dragon": "a", "r_gold_goblin": "a", "r_metal_slime": "a",
 }
 BGS = ["bg_plains", "bg_village", "bg_cave", "bg_forest", "bg_ruins", "bg_castle", "bg_throne"]
 

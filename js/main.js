@@ -1,9 +1,15 @@
-// 漢字の勇者ケイト — ゲームの流れ（タイトル → 主人公 → 学年 → 王さま → 冒険40問 → 分岐 or 魔王城10問 → エンディング → リザルト）
+// 漢字の勇者ケイト — ゲームの流れ
+// タイトル → 主人公 → 学年 → 王さま → 冒険40問 → 分岐ダンジョン or 魔王城 → （ノーミスなら）さいごの いちげき（8択）→ エンディング → リザルト
+//
+// ぶき・なかま・ぞくせいは こうかが ある：
+//   ぶき   … ボス戦の はじめに かくりつで はつどう（ダメージ2ばい・せんたくし3つ・まちがい無効 など）
+//   なかま … 毎問 かくりつで はつどう（レア度が高いほど かくりつが高い）
+//   ぞくせい… ずっと きく パッシブ（1回だけ 2つから えらぶ。レア度の差は なし）
 import { unlockAudio, sfx, playBgm, stopBgm, setMuted, isMuted } from './audio.js';
-import { loadQuestions, makeChoices, Deck } from './quiz.js';
+import { loadQuestions, loadHard, makeChoices, Deck } from './quiz.js';
 import {
   $, wait, rand, randInt, pickOne, ruby, plain, img, restart, flash, shake, burstText, damage, particles,
-  slash, bolts, learnChip, banner, cutin, gacha, sparkles, castleFx, speed,
+  slash, bolts, learnChip, banner, cutin, gacha, sparkles, castleFx, speed, toast, choose,
 } from './fx.js';
 
 const LABEL = {
@@ -12,25 +18,41 @@ const LABEL = {
   similar: 'にた かんじ', combine: 'くみあわせ', usage: 'つかいかた',
 };
 const RANK = ['COMMON', 'RARE', 'EPIC', 'LEGENDARY'];
-const KIND_LABEL = { weapon: 'でんせつの ぶき', pet: 'なかま', element: 'ぞくせい' };
+const KIND_LABEL = { weapon: 'でんせつの ぶき', pet: 'なかま' };
+const LETTERS = 'ABCDEFGH';
 const isKanji = (s) => /[㐀-鿿]/.test(s);
 
 let G = null; // data/game.json
 let S = null; // 1回のプレイの状態（ブラウザを閉じたら消える）
-let questionCache = { grade: 0, list: null };
+let questionCache = { grade: 0, list: null, hard: null };
 const settings = { hero: 'keito', grade: 3 };
 
 // ---------- 画面ユーティリティ ----------
 function show(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+  if (id === 'screen-battle') requestAnimationFrame(fitQuiz);
 }
 function setBg(el, name) { el.style.backgroundImage = name ? `url(${img(name)})` : 'none'; }
 function fitHeight() {
   // 古いブラウザ（dvh 非対応）向けに、見えている高さを CSS 変数に入れる
-  document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
+  fitQuiz();
+}
+// 選択肢が画面の下にはみ出すときは、はみ出さなくなるまで 少しずつ つめる
+function fitQuiz() {
+  const scr = $('#screen-battle');
+  if (!scr || !scr.classList.contains('active')) return;
+  const levels = ['c1', 'c2', 'c3', 'c4', 'c5'];
+  scr.classList.remove(...levels);
+  const limit = () => Math.min($('#app').getBoundingClientRect().bottom, window.innerHeight, window.visualViewport ? window.visualViewport.height : 1e9);
+  const last = () => { const b = $('#answers').lastElementChild; return b ? b.getBoundingClientRect().bottom : 0; };
+  for (let i = 0; i < levels.length && last() > limit() - 2; i++) scr.classList.add(levels[i]);
 }
 const hero = () => G.heroes[settings.hero];
 const fill = (s) => s.replaceAll('{HERO}', hero().name).replaceAll('{I}', hero().I);
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const chance = (p) => Math.random() < p;
 
 function preload(names, onEach) {
   return Promise.all(names.map((n) => new Promise((res) => {
@@ -51,6 +73,7 @@ function tapAnywhere(el) {
 async function boot() {
   fitHeight();
   window.addEventListener('resize', fitHeight);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitHeight);
   const msgs = ['勇者を しょうかん中……', '漢字パワーを あつめています……', 'たからばこを かくしています……', 'モンスターが じゅんび中……'];
   let mi = 0;
   const msgTimer = setInterval(() => { $('#loading-text').textContent = msgs[++mi % msgs.length]; }, 900);
@@ -107,10 +130,11 @@ function bindUI() {
   $('#btn-again').addEventListener('click', () => newGame(false));
   $('#btn-title').addEventListener('click', () => { stopBgm(); playBgm('title'); show('screen-title'); });
 
-  // PCではキーボードでも遊べる（1〜4 / A〜D、Enter）
+  // PCではキーボードでも遊べる（1〜8 / A〜H、Enter）
   document.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
-    const idx = ['1', '2', '3', '4'].indexOf(k) >= 0 ? ['1', '2', '3', '4'].indexOf(k) : ['a', 'b', 'c', 'd'].indexOf(k);
+    let idx = '12345678'.indexOf(k);
+    if (idx < 0 && k.length === 1) idx = 'abcdefgh'.indexOf(k);
     if (idx >= 0 && $('#screen-battle').classList.contains('active')) document.querySelectorAll('.ans')[idx]?.click();
     if (k === 'enter' || k === ' ') {
       if ($('#explain').classList.contains('show')) $('#btn-next').click();
@@ -156,27 +180,32 @@ async function playStory(lines, bg) {
 async function newGame(withIntro) {
   S = {
     log: [], shownQ: 1,
-    n: 0, correct: 0, combo: 0, maxCombo: 0, power: 0, hp: 100, lv: 1,
-    route: 'main', routeN: 0, missAt: null, branchAt: null, bossSpawned: false, bossId: null,
-    areaIdx: -1, waveIdx: 0, monster: null, kills: 0, finalMiss: 0, sinceChest: 0,
-    owned: { weapon: new Set(), pet: new Set(), element: new Set() }, best: { weapon: null, pet: null, element: null },
+    n: 0, correct: 0, misses: 0, saved: 0, combo: 0, maxCombo: 0, power: 0, hp: 100, lv: 1,
+    route: 'main', routeN: 0, missAt: null, branchAt: null, bossSpawned: false, bossId: null, bossDown: false,
+    areaIdx: -1, waveIdx: 0, monster: null, kills: 0, finalMiss: 0, sinceChest: 0, rareSeen: 0,
+    owned: { weapon: new Set(), pet: new Set() }, best: { weapon: null, pet: null }, element: null,
+    windLeft: 0, iceLeft: 0, armed: { dmg: 0, cut: 0, guard: 0 }, sealed: false, finalTried: false,
   };
   // 問題の読みこみは会話中に裏で進める
   const loading = questionCache.grade === settings.grade
-    ? Promise.resolve(questionCache.list)
-    : loadQuestions(settings.grade).then((list) => { questionCache = { grade: settings.grade, list }; return list; });
+    ? Promise.resolve(questionCache)
+    : Promise.all([loadQuestions(settings.grade), loadHard(settings.grade)]).then(([list, hard]) => {
+      questionCache = { grade: settings.grade, list, hard };
+      return questionCache;
+    });
   loading.catch(() => {});
   if (withIntro) {
     playBgm('title');
     await playStory(G.intro, 'bg_throne');
   }
-  let list;
-  try { list = await loading; } catch (e) {
+  let data;
+  try { data = await loading; } catch (e) {
     alert('もんだいを よみこめませんでした。start.bat から ひらいてください。');
     show('screen-title');
     return;
   }
-  S.deck = new Deck(list, settings.grade);
+  S.deck = new Deck(data.list, settings.grade);
+  S.hardPool = data.hard;
   // ほかの画像は裏で読んでおく
   preload(Object.values(G.monsters).map((m) => m.img).concat(['bg_village', 'bg_forest', 'bg_ruins', 'bg_cave', 'bg_castle', 'villager', 'p_fairy']));
   setupBattleScreen();
@@ -192,7 +221,10 @@ function setupBattleScreen() {
   castleFx(false);
   $('#combo').innerHTML = '';
   $('#fx-layer').innerHTML = '';
+  $('#skill-toasts').innerHTML = '';
+  $('#answers').innerHTML = '';
   $('#explain').classList.remove('show');
+  $('#screen-battle').classList.remove('final');
   updateHud();
   updateEquip();
 }
@@ -222,24 +254,24 @@ async function runGame() {
       if (area !== S.areaIdx) await enterArea(area);
       if (!S.monster || S.monster.hp <= 0) await spawnMainMonster();
       // たまに宝箱イベント
-      if (qno > 3 && S.sinceChest >= 4 && Math.random() < 0.12) {
+      if (qno > 3 && S.sinceChest >= 4 && chance(0.12)) {
         await banner('たからばこを<br>みつけた！', { small: 'ラッキー！', cls: 'gold', ms: 1100 });
         await openChest({});
       }
     } else {
-      if (S.routeN >= 10) { await finishRoute(); return; }
+      if (S.routeN >= 10 || S.bossDown) { await finishRoute(); return; }
       await routeSpawn();
     }
     S.shownQ = qno;
     updateHud();
     const phase = S.route === 'main' ? 'main' : S.route === 'maou' ? 'final' : 'dungeon';
     const q = S.deck.pick(phase, S.route === 'main' ? qno : S.routeN + 1);
-    const ok = await askQuestion(q);
-    S.log.push({ no: qno, id: q.id, grade: q.grade, type: q.type, route: S.route, ok, pos: S.current.correctIndex });
+    const res = await askQuestion(q);
+    S.log.push({ no: qno, id: q.id, grade: q.grade, type: q.type, route: S.route, ok: res.ok, pos: S.current.correctIndex, n: S.current.choices.length });
     S.n++;
     if (S.route !== 'main') S.routeN++;
     S.sinceChest++;
-    if (ok) await onCorrect(q);
+    if (res.ok) await onCorrect(q, res);
     else await onWrong(q, qno);
   }
 }
@@ -256,43 +288,53 @@ async function enterArea(i) {
   await banner(ruby(a.name), { small: `AREA ${i + 1}`, ms: 1500 });
 }
 
-function setMonster(id, hits, { boss = false, elite = false } = {}) {
+function setMonster(id, hits, { boss = false, elite = false, rare = false } = {}) {
   const m = G.monsters[id];
-  S.monster = { id, name: m.name, hp: hits, max: hits, boss, elite };
+  S.monster = { id, name: m.name, hp: hits, max: hits, boss, elite, rare };
   const en = $('#enemy');
-  en.className = 'enemy' + (boss ? ' boss' : '');
+  en.className = 'enemy' + (boss ? ' boss' : '') + (rare ? ' rare' : '');
   en.style.visibility = 'visible';
   const im = $('#enemy-img');
   im.src = img(m.img);
   // ザコは たまに色ちがい
-  im.style.filter = !boss && !elite && Math.random() < 0.3 ? `hue-rotate(${randInt(60, 300)}deg)` : '';
+  im.style.filter = !boss && !elite && !rare && chance(0.3) ? `hue-rotate(${randInt(60, 300)}deg)` : '';
   restart(en, 'appear');
-  $('#enemy-name').innerHTML = (elite ? '★ ' : '') + ruby(m.name);
+  $('#enemy-name').innerHTML = (rare ? '✦ ' : elite ? '★ ' : '') + ruby(m.name);
   const hud = $('#enemy-hud');
   hud.style.opacity = 1;
   hud.classList.toggle('boss', boss);
+  hud.classList.toggle('rare', rare);
   $('#enemy-hp-segs').innerHTML = '<span></span>'.repeat(hits);
   updateEnemyHp();
 }
 function updateEnemyHp() {
-  $('#enemy-hp-fill').style.width = (S.monster.hp / S.monster.max) * 100 + '%';
+  $('#enemy-hp-fill').style.width = (Math.max(0, S.monster.hp) / S.monster.max) * 100 + '%';
 }
 
 async function spawnMainMonster() {
   const a = G.areas[S.areaIdx];
-  const wave = a.waves[Math.min(S.waveIdx, a.waves.length - 1)];
-  const useWave = S.waveIdx >= a.waves.length ? a.waves[0] : wave;
+  const useWave = S.waveIdx >= a.waves.length ? a.waves[0] : a.waves[S.waveIdx];
   S.waveIdx++;
-  setMonster(pickOne(useWave.pool), useWave.hits, { elite: !!useWave.elite && S.waveIdx <= a.waves.length });
+  const elite = !!useWave.elite && S.waveIdx <= a.waves.length;
+  // レアモンスター（たおすと レアな たからばこ。まちがえると にげる）
+  if (!elite && S.kills >= 1 && S.rareSeen < 2 && chance(G.rareMonsters.chance)) {
+    S.rareSeen++;
+    S.waveIdx--; // この波は あとで もう一度
+    setMonster(pickOne(G.rareMonsters.pool), 1, { rare: true });
+    sfx('rare', 'EPIC');
+    await banner('レアモンスター<br>しゅつげん！', { small: '✦ チャンス ✦', cls: 'gold', ms: 1300 });
+    return;
+  }
+  setMonster(pickOne(useWave.pool), useWave.hits, { elite });
   if (S.monster.elite) await banner('つよい てきが<br>あらわれた！', { small: '⚠ ちゅうい', cls: 'warning', ms: 1100 });
   else await wait(450);
 }
 
 // ---------- 1問 ----------
-function renderQuestion(q) {
+function renderQuestion(q, label) {
   const big = $('#q-big');
   const card = $('#q-card');
-  $('#q-type').textContent = LABEL[q.type] || 'もんだい';
+  $('#q-type').textContent = label || LABEL[q.type] || 'もんだい';
   let b = q.big || '';
   big.className = 'q-big';
   if (q.type === 'similar' || q.type === 'usage' || q.type === 'wrongKanji') b = '';
@@ -315,47 +357,71 @@ function renderQuestion(q) {
   pr.classList.toggle('only', !b);
   restart(card, 'enter');
 }
-const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
-function askQuestion(q) {
-  renderQuestion(q);
-  const { choices, correctIndex } = makeChoices(q);
+// せんたくしを へらす こうか（光・なかま・ボス戦のぶき）。いくつ へらすかを返す
+function rollCut() {
+  let cut = 0;
+  const el = S.element;
+  if (el && el.passive === 'cut' && chance(el.chance)) { cut++; toast(`${el.emoji} ${ruby(el.skill)}！ せんたくしが へった`, el.color); }
+  const pet = S.best.pet;
+  if (pet && pet.effect === 'cut' && chance(pet.chance)) { cut++; toast(`🐾 ${ruby(pet.skill)}！ せんたくしが へった`, '#7cf'); }
+  if (S.monster && S.monster.boss && S.armed.cut > 0) { S.armed.cut--; cut++; toast(`⚔️ ${ruby(S.best.weapon.skill)}！ せんたくしが へった`, '#ffd54a'); }
+  return Math.min(cut, 2);
+}
+
+// 1問こたえる。 { ok, retried } を返す。eight=true で 8択（さいごの いちげき）
+function askQuestion(q, { eight = false, label = '' } = {}) {
+  renderQuestion(q, label);
+  let { choices, correctIndex } = makeChoices(q, eight ? 7 : 3);
+  if (!eight) {
+    // へらす せんたくしは まちがいの中から えらぶ
+    const cut = rollCut();
+    for (let i = 0; i < cut; i++) {
+      const wrongIdx = choices.map((c, j) => j).filter((j) => j !== correctIndex);
+      choices.splice(pickOne(wrongIdx), 1);
+      correctIndex = choices.indexOf(q.answer);
+    }
+  }
   S.current = { q, choices, correctIndex };
-  const btns = [...document.querySelectorAll('.ans')];
-  const long = choices.some((c) => [...c].length > 7);
-  btns.forEach((btn, i) => {
-    btn.className = 'ans';
-    const t = btn.querySelector('.ans-text');
-    t.textContent = choices[i];
-    t.className = 'ans-text' + (long ? ' long' : '') + (!isKanji(choices[i]) ? ' kana' : '');
-  });
   const wrap = $('#answers');
-  wrap.classList.remove('locked');
+  wrap.className = 'answers' + (eight ? ' eight' : '') + (choices.length < 4 && !eight ? ' few' : '');
+  const long = choices.some((c) => [...c].length > (eight ? 5 : 7));
+  wrap.innerHTML = choices.map((c, i) => `<button class="ans"><span class="ans-mark">${LETTERS[i]}</span><span class="ans-text${long ? ' long' : ''}${!isKanji(c) ? ' kana' : ''}">${escapeHtml(c)}</span></button>`).join('');
+  const btns = [...wrap.querySelectorAll('.ans')];
+  fitQuiz();
+  let retried = false;
   return new Promise((resolve) => {
     btns.forEach((btn, i) => {
       btn.onclick = () => {
-        if (wrap.classList.contains('locked')) return;
-        wrap.classList.add('locked');
+        if (wrap.classList.contains('locked') || btn.classList.contains('wrong')) return;
         S.current.chosen = i;
         const ok = i === correctIndex;
+        // 水：まちがえても もう一度 えらべる（8択では はつどうしない）
+        const el = S.element;
+        if (!ok && !eight && !retried && el && el.passive === 'retry' && chance(el.chance)) {
+          retried = true;
+          btn.classList.add('wrong');
+          sfx('wrong');
+          toast(`${el.emoji} ${ruby(el.skill)}！ もう一回 えらべるよ`, el.color, 2200);
+          S.current.chosen = undefined;
+          return;
+        }
+        wrap.classList.add('locked');
         btns[correctIndex].classList.add('correct');
         if (!ok) btn.classList.add('wrong');
         btns.forEach((b, j) => { if (j !== correctIndex && j !== i) b.classList.add('dim'); });
-        resolve(ok);
+        resolve({ ok, retried });
       };
     });
   });
 }
 
-function heroAttackColor() { return S.best.element ? S.best.element.color : '#8ef'; }
+function heroAttackColor() { return S.element ? S.element.color : '#8ef'; }
+// ひっさつわざの名前（ぞくせい ＋ わざ。ぶきが あれば 名前も そえる）
 function moveName() {
-  const w = S.best.weapon;
-  const e = S.best.element;
-  const tail = pickOne(['スラッシュ', 'ブレイク', 'ストライク', 'バースト']);
-  if (w && e) return `${ruby(w.name)}<br>${e.move}${tail}！`;
-  if (w) return `${ruby(w.name)}<br>ゆうしゃ${tail}！`;
-  if (e) return `${e.move}${tail}！`;
-  return `ゆうしゃ${tail}！`;
+  const e = S.element || { kanji: '{勇気|ゆうき}', kana: 'ブレイブ' };
+  const t = pickOne(G.techniques);
+  return { name: ruby(e.kanji + t.k), sub: `${e.kana}・${t.e}`, small: S.best.weapon ? `${plain(S.best.weapon.name)} ひっさつわざ` : 'ひっさつわざ' };
 }
 
 async function onCorrect(q) {
@@ -371,6 +437,16 @@ async function onCorrect(q) {
   if (special) gain += 500;
   S.power += gain;
 
+  // ダメージ（1 ＋ こうかの ぶん）
+  let dmg = 1;
+  let petHit = false;
+  const el = S.element;
+  if (special) dmg++;
+  if (el && el.passive === 'dmg' && chance(el.chance)) { dmg++; toast(`${el.emoji} ${ruby(el.skill)}！ ダメージ2ばい`, el.color); }
+  const pet = S.best.pet;
+  if (pet && pet.effect === 'dmg' && chance(pet.chance)) { dmg++; petHit = true; toast(`🐾 ${ruby(pet.skill)}！ ダメージ2ばい`, '#7cf'); }
+  if (S.monster.boss && S.armed.dmg > 0) { S.armed.dmg--; dmg++; toast(`⚔️ ${ruby(S.best.weapon.skill)}！ ダメージ2ばい`, '#ffd54a'); }
+
   // コンボ表示
   if (S.combo >= 2) {
     $('#combo').innerHTML = `<b>${S.combo}</b><small>COMBO!</small>`;
@@ -384,7 +460,8 @@ async function onCorrect(q) {
     burstText('漢字パワー<br>MAX!!', 'max', 1300);
     sfx('max');
     await wait(700);
-    await cutin({ heroImg: img(hero().img), name: moveName(), color: heroAttackColor() });
+    const mv = moveName();
+    await cutin({ heroImg: img(hero().img), name: mv.name, sub: mv.sub, small: mv.small, color: heroAttackColor() });
   }
 
   // こうげき
@@ -392,34 +469,85 @@ async function onCorrect(q) {
   restart(unit, special ? 'special' : 'attack');
   await wait(special ? 420 : 160);
   sfx('slash');
-  slash(heroAttackColor(), special || S.combo >= 3);
-  if (special && S.best.element && S.best.element.id === 'thunder') bolts(4);
+  slash(heroAttackColor(), special || S.combo >= 3 || dmg > 1);
+  if ((special || dmg > 1) && el && el.id === 'thunder') bolts(4);
   await wait(120);
-  const crit = special || Math.random() < 0.15;
+  const crit = dmg > 1 || chance(0.12);
   sfx(crit ? 'crit' : 'hit');
   restart($('#enemy'), 'hit');
-  if (special) { flash(); shake($('#field')); }
+  if (special || dmg > 1) { flash(); shake($('#field')); }
   const base = randInt(60, 140) + S.lv * 12;
-  damage(Math.round(base * (1 + S.combo * 0.15) * (crit ? 2.2 : 1)), { crit, x: randInt(48, 66), y: randInt(22, 38) });
+  damage(Math.round(base * (1 + S.combo * 0.15) * dmg * (crit ? 1.6 : 1)), { crit, x: randInt(48, 66), y: randInt(22, 38) });
   particles({ x: 58, y: 46, n: special ? 26 : 12, colors: [heroAttackColor(), '#fff', '#ffd54a'] });
-  // 仲間もこうげき
-  if (S.best.pet && (special || S.combo % 3 === 0)) {
+  // 仲間の ついげき（演出）
+  if (pet && (petHit || special || S.combo % 3 === 0)) {
     await wait(200);
     restart($('#pet-img'), 'attack');
     await wait(260);
     sfx('hit');
-    damage(randInt(40, 120), { x: randInt(40, 70), y: randInt(30, 46) });
+    damage(randInt(40, 120) * (petHit ? 2 : 1), { x: randInt(40, 70), y: randInt(30, 46) });
   }
-  S.monster.hp = Math.max(0, S.monster.hp - 1);
+  await hitMonster(dmg);
+}
+
+async function hitMonster(dmg) {
+  const m = S.monster;
+  m.hp = Math.max(0, m.hp - dmg);
   updateEnemyHp();
-  if (S.route === 'maou' && S.monster.hp === Math.floor(S.monster.max / 2) && !S.raged) await maouRage();
-  if (S.monster.hp <= 0 && !(S.monster.boss && S.route !== 'main')) await defeatMonster();
+  if (S.route === 'maou' && m.hp <= Math.floor(m.max / 2) && !S.raged && m.hp > 0) await maouRage();
+  if (m.hp <= 0 && m.boss && S.route !== 'main') { S.bossDown = true; await wait(520); return; }
+  if (m.hp <= 0) await defeatMonster();
   else await wait(520);
 }
 
+// まちがいを なかったことに できるか（ぶき→なかま→闇→風 の じゅん）
+function tryGuard() {
+  if (S.monster && S.monster.boss && S.armed.guard > 0) { S.armed.guard--; return `⚔️ ${ruby(S.best.weapon.skill)}`; }
+  const pet = S.best.pet;
+  if (pet && pet.effect === 'guard' && chance(pet.chance)) return `🐾 ${ruby(pet.skill)}`;
+  const el = S.element;
+  if (el && el.passive === 'guard' && chance(el.chance)) return `${el.emoji} ${ruby(el.skill)}`;
+  if (el && el.passive === 'guardOnce' && S.windLeft > 0) { S.windLeft--; return `${el.emoji} ${ruby(el.skill)}`; }
+  return null;
+}
+
+async function showExplain(q, safe) {
+  $('.explain-head').textContent = safe ? 'セーフ！' : 'ざんねん！';
+  $('.explain-card').classList.toggle('safe', !!safe);
+  $('.explain-answer').firstChild.textContent = q.type === 'wrongKanji' ? 'まちがっているのは ' : 'せいかいは ';
+  const ans = $('#explain-answer');
+  ans.textContent = q.answer;
+  ans.className = [...q.answer].length > 8 ? 'long' : '';
+  const lines = [];
+  if (safe) lines.push(`${safe} の ちからで、まちがいが なかったことに なった！`);
+  lines.push(escapeHtml(q.explain || ''));
+  if (q.meaning && q.type !== 'meaning') lines.push(escapeHtml(`いみ：${q.meaning}`));
+  $('#explain-text').innerHTML = lines.filter(Boolean).join('<br>');
+  $('#explain').classList.add('show');
+  await new Promise((res) => { $('#btn-next').onclick = () => { $('#explain').classList.remove('show'); res(); }; });
+}
+
 async function onWrong(q, qno) {
-  S.combo = 0;
-  $('#combo').innerHTML = '';
+  const guard = tryGuard();
+  if (guard) {
+    // ミスに ならない（コンボも のこる）。でも 正しい答えは ちゃんと見せる
+    S.saved++;
+    sfx('levelup');
+    burstText('セーフ！', 'good');
+    toast(`${guard}！ まちがいを なかったことに`, '#9f9', 2400);
+    await wait(700);
+    await showExplain(q, guard);
+    return;
+  }
+  S.misses++;
+  const el = S.element;
+  if (el && el.passive === 'keepCombo' && S.iceLeft > 0 && S.combo > 0) {
+    S.iceLeft--;
+    toast(`${el.emoji} ${ruby(el.skill)}！ コンボが こおって のこった`, el.color);
+  } else {
+    S.combo = 0;
+    $('#combo').innerHTML = '';
+  }
   if (S.route === 'maou') S.finalMiss++;
   sfx('wrong');
   burstText('ざんねん！', 'bad');
@@ -439,15 +567,18 @@ async function onWrong(q, qno) {
   await wait(450);
 
   // 解説（ここで しっかり読めるように、タップするまで待つ）
-  $('.explain-answer').firstChild.textContent = q.type === 'wrongKanji' ? 'まちがっているのは ' : 'せいかいは ';
-  const ans = $('#explain-answer');
-  ans.textContent = q.answer;
-  ans.className = [...q.answer].length > 8 ? 'long' : '';
-  const lines = [q.explain];
-  if (q.meaning && q.type !== 'meaning') lines.push(`いみ：${q.meaning}`);
-  $('#explain-text').innerHTML = lines.filter(Boolean).map(escapeHtml).join('<br>');
-  $('#explain').classList.add('show');
-  await new Promise((res) => { $('#btn-next').onclick = () => { $('#explain').classList.remove('show'); res(); }; });
+  await showExplain(q, null);
+
+  // レアモンスターは まちがえると にげる
+  if (S.monster && S.monster.rare && S.monster.hp > 0) {
+    burstText(`${ruby(S.monster.name)}は<br>にげだした！`, 'bad', 1000);
+    restart($('#enemy'), 'dead');
+    $('#enemy-hud').style.opacity = 0;
+    S.monster.hp = 0;
+    S.monster = null;
+    await wait(1000);
+    $('#enemy').style.visibility = 'hidden';
+  }
 
   // 40問より前に はじめて まちがえたら、1〜2問あとに特別ダンジョンへ
   if (S.route === 'main' && S.missAt === null) {
@@ -476,29 +607,33 @@ async function defeatMonster() {
   $('#enemy').style.visibility = 'hidden';
   if (S.route !== 'main') return;
   // 宝箱
-  if (S.kills === 1) await openChest({ kind: 'weapon' });
-  else if (m.elite) await openChest({ minRarity: 'RARE', preferMissing: true });
-  else if (Math.random() < 0.4) await openChest({});
+  if (m.rare) {
+    await banner('レアな たからばこ！', { small: '✦ レアモンスターの おとしもの ✦', cls: 'gold', ms: 1200 });
+    await openChest({ rarity: chance(G.rareMonsters.legendChance) ? 'LEGENDARY' : 'EPIC' });
+  } else if (S.kills === 1) await openChest({ kind: 'weapon' });
+  else if (m.elite) await openChest({ minRarity: 'RARE' });
+  else if (chance(0.35)) await openChest({});
+  // 2ひきめを たおしたら ぞくせいを えらぶ
+  if (S.kills === 2 && !S.element) await chooseElement();
 }
 
-// ---------- ごほうび（演出だけ。問題には影響しない） ----------
+// ---------- ごほうび ----------
 function rollRarity(min = 'COMMON') {
-  const minI = RANK.indexOf(min);
-  const options = RANK.slice(minI);
+  const options = RANK.slice(RANK.indexOf(min));
   const total = options.reduce((s, r) => s + G.rarities[r].weight, 0);
   let x = Math.random() * total;
   for (const r of options) { x -= G.rarities[r].weight; if (x <= 0) return r; }
   return options[options.length - 1];
 }
 
-async function openChest({ kind, minRarity = 'COMMON', preferMissing = true }) {
+async function openChest({ kind, minRarity = 'COMMON', rarity }) {
   S.sinceChest = 0;
   if (!kind) {
-    const missing = ['weapon', 'pet', 'element'].filter((k) => !S.best[k]);
-    kind = preferMissing && missing.length ? pickOne(missing) : pickOne(['weapon', 'pet', 'element']);
+    const missing = ['weapon', 'pet'].filter((k) => !S.best[k]);
+    kind = missing.length ? pickOne(missing) : pickOne(['weapon', 'pet']);
   }
-  const list = kind === 'weapon' ? G.weapons : kind === 'pet' ? G.pets : G.elements;
-  let rarity = rollRarity(minRarity);
+  const list = kind === 'weapon' ? G.weapons : G.pets;
+  rarity = rarity || rollRarity(minRarity);
   let pool = list.filter((x) => x.rarity === rarity);
   while (!pool.length) { rarity = RANK[RANK.indexOf(rarity) - 1] || 'RARE'; pool = list.filter((x) => x.rarity === rarity); }
   // まだ持っていないものを優先
@@ -507,24 +642,83 @@ async function openChest({ kind, minRarity = 'COMMON', preferMissing = true }) {
   const isNew = !S.owned[kind].has(item.id);
   S.owned[kind].add(item.id);
   const cur = S.best[kind];
-  if (!cur || RANK.indexOf(item.rarity) >= RANK.indexOf(cur.rarity)) S.best[kind] = item;
-  await gacha({ kindLabel: KIND_LABEL[kind] + 'を ゲット！', item, rarity: item.rarity, rarityInfo: G.rarities[item.rarity], isNew });
+  const equip = !cur || RANK.indexOf(item.rarity) >= RANK.indexOf(cur.rarity);
+  if (equip) S.best[kind] = item;
+  const desc = `<b>${ruby(item.skill)}</b><br>${escapeHtml(item.desc)}${equip ? '' : '<br><small>（いまの そうびの ほうが つよいので しまっておく）</small>'}`;
+  await gacha({ kindLabel: KIND_LABEL[kind] + 'を ゲット！', item, rarity: item.rarity, rarityInfo: G.rarities[item.rarity], isNew, desc });
+  updateEquip();
+}
+
+async function chooseElement() {
+  const two = [...G.elements].sort(() => Math.random() - 0.5).slice(0, 2);
+  sfx('rare', 'RARE');
+  const i = await choose({
+    title: ruby('ぞくせいの {泉|いずみ}を みつけた！'),
+    sub: 'どちらか 1つ えらんでね（あとから かえられないよ）',
+    cards: two.map((e) => ({ icon: e.emoji, name: ruby(e.name) + 'ぞくせい', skill: ruby(e.skill), desc: escapeHtml(e.desc), color: e.color })),
+  });
+  const el = two[i];
+  S.element = el;
+  S.windLeft = el.passive === 'guardOnce' ? el.value : 0;
+  S.iceLeft = el.passive === 'keepCombo' ? el.value : 0;
+  sfx('levelup');
+  flash();
+  await banner(`${el.emoji} ${ruby(el.name)}ぞくせい`, { small: 'ちからが やどった！', cls: 'gold', ms: 1300 });
   updateEquip();
 }
 
 function updateEquip() {
-  const el = $('#equip');
-  el.innerHTML = '';
-  for (const k of ['weapon', 'element']) {
-    const it = S.best[k];
-    if (!it) continue;
+  const box = $('#equip');
+  box.innerHTML = '';
+  const w = S.best.weapon;
+  if (w) {
     const s = document.createElement('span');
-    if (it.rarity === 'LEGENDARY') s.className = 'legend';
-    s.innerHTML = it.img ? `<img src="${img(it.img)}" alt="">` : it.emoji;
-    el.appendChild(s);
+    if (w.rarity === 'LEGENDARY') s.className = 'legend';
+    s.innerHTML = w.img ? `<img src="${img(w.img)}" alt="">` : w.emoji;
+    box.appendChild(s);
+  }
+  if (S.element) {
+    const s = document.createElement('span');
+    s.innerHTML = S.element.emoji;
+    box.appendChild(s);
   }
   const pet = $('#pet-img');
   if (S.best.pet) { pet.src = img(S.best.pet.img); pet.classList.add('show'); }
+}
+
+// ボス戦の はじめ：ぶきの ちから・雷ぞくせい
+async function armBoss() {
+  S.armed = { dmg: 0, cut: 0, guard: 0 };
+  let open = 0;
+  const w = S.best.weapon;
+  if (w && chance(w.chance)) {
+    const ef = w.effect;
+    if (ef.type === 'dmg') S.armed.dmg += ef.times;
+    if (ef.type === 'cut') S.armed.cut += ef.times;
+    if (ef.type === 'guard') S.armed.guard += ef.times;
+    if (ef.type === 'open') open += ef.value;
+    if (ef.dmg) S.armed.dmg += ef.dmg;
+    if (ef.cut) S.armed.cut += ef.cut;
+    await cutin({ heroImg: img(hero().img), name: ruby(w.skill), sub: plain(w.name), small: 'ぶきの ちから はつどう！', color: '#ffb800' });
+    toast(`⚔️ ${escapeHtml(w.desc.replace(/^ボス戦で \d+%：/, ''))}`, '#ffd54a', 3000);
+  } else if (w) {
+    toast(`⚔️ ${ruby(w.skill)}は はつどう しなかった……`, '#aaa', 2000);
+  }
+  const el = S.element;
+  if (el && el.passive === 'open') { open += el.value; toast(`${el.emoji} ${ruby(el.skill)}！`, el.color); }
+  if (open) {
+    await wait(300);
+    sfx('crit');
+    bolts(3);
+    flash();
+    restart($('#enemy'), 'hit');
+    const m = S.monster;
+    const d = Math.min(open, m.hp - 1); // さいしょの こうげきだけでは たおれない
+    m.hp -= d;
+    damage(d * 333, { crit: true, x: 56, y: 30 });
+    updateEnemyHp();
+    await wait(700);
+  }
 }
 
 // ---------- 分岐ダンジョン・魔王城 ----------
@@ -534,6 +728,7 @@ async function startBranch() {
   S.route = key;
   S.routeN = 0;
   S.bossSpawned = false;
+  S.bossDown = false;
   S.bossId = r.boss;
   S.monster = null;
   await banner('とつぜん<br>ひめいが きこえた！', { small: '……！？', ms: 1300 });
@@ -545,6 +740,7 @@ async function startBranch() {
   $('#enemy').style.visibility = 'hidden';
   $('#enemy-hud').style.opacity = 0;
   await banner(ruby(r.name), { small: 'とくべつ ダンジョン', ms: 1500 });
+  if (!S.element) await chooseElement();
 }
 
 async function routeSpawn() {
@@ -581,6 +777,7 @@ async function bossEntrance(r) {
   flash();
   shake();
   await wait(700);
+  await armBoss();
 }
 
 async function startMaou() {
@@ -588,6 +785,7 @@ async function startMaou() {
   S.route = 'maou';
   S.routeN = 0;
   S.bossId = r.boss;
+  S.bossDown = false;
   S.raged = false;
   $('#enemy-hud').style.opacity = 0;
   $('#enemy').style.visibility = 'hidden';
@@ -610,6 +808,7 @@ async function startMaou() {
   flash(true);
   shake();
   await wait(800);
+  await armBoss();
 }
 
 async function maouRage() {
@@ -621,21 +820,19 @@ async function maouRage() {
   $('#enemy').classList.add('rage');
   $('#battle-bg').style.filter = 'brightness(.5) saturate(1.6) hue-rotate(-20deg)';
   await banner(ruby(G.routes.maou.rage[0][1]), { small: '魔王が いかった！', cls: 'warning', ms: 1800 });
-  $('#enemy').classList.add('rage');
 }
 
-async function finishRoute() {
-  const r = G.routes[S.route];
-  const m = S.monster;
-  await wait(300);
-  // 正解が足りなくても、仲間の力で かならず たおせる
+// とどめの いちげき（ボスの HP が のこっていたら 仲間が てつだう）
+async function finishingBlow(m) {
   if (m.hp > 0) {
-    const helper = S.best.pet ? S.best.pet : null;
+    const helper = S.best.pet;
     const helperName = helper ? helper.name : '{王|おう}さまの {光|ひかり}';
     await banner(`${ruby(helperName)}が<br>ちからを かしてくれた！`, { small: 'あきらめない こころ！', cls: 'gold', ms: 1600 });
     if (helper) { restart($('#pet-img'), 'attack'); await wait(300); }
   }
-  await cutin({ heroImg: img(hero().img), name: S.route === 'maou' ? '{漢字|かんじ}の{勇者|ゆうしゃ}<br>きゅうきょく おうぎ！'.replace(/\{([^|{}]+)\|([^{}]+)\}/g, '<ruby>$1<rt>$2</rt></ruby>') : moveName(), small: 'とどめの いちげき', color: heroAttackColor() });
+  const w = S.best.weapon;
+  const mv = moveName();
+  await cutin({ heroImg: img(hero().img), name: w ? ruby(w.ult) : mv.name, sub: w ? plain(w.name) : mv.sub, small: 'とどめの いちげき', color: heroAttackColor() });
   restart($('.hero-unit'), 'special');
   await wait(400);
   sfx('slash'); slash(heroAttackColor(), true); bolts(3);
@@ -645,11 +842,15 @@ async function finishRoute() {
   m.hp = 0; updateEnemyHp();
   particles({ x: 58, y: 45, n: 40, spread: 220, colors: ['#fff', '#ffd54a', '#ff6fb5', '#38e1ff'] });
   await wait(500);
+}
 
-  if (S.route === 'maou') {
-    await playStory(r.defeat, r.bg);
-    show('screen-battle');
-  }
+async function finishRoute() {
+  const r = G.routes[S.route];
+  const m = S.monster;
+  await wait(300);
+  await finishingBlow(m);
+  if (S.route === 'maou') { await finishMaou(); return; }
+
   sfx('defeat');
   restart($('#enemy'), 'dead');
   flash();
@@ -657,23 +858,94 @@ async function finishRoute() {
   stopBgm();
   sfx('victory');
   $('#enemy-hud').style.opacity = 0;
-  $('#magic-circle').classList.remove('on');
   await banner(`${ruby(m.name)}を<br>たおした！！`, { small: 'VICTORY', cls: 'gold', ms: 2200 });
-
-  // ボスのごほうび。まだ持っていない種類（ぶき・なかま・ぞくせい）は ここで ぜんぶ そろえる
-  const perfect = S.route === 'maou' && S.finalMiss === 0;
-  await openChest({ minRarity: perfect ? 'LEGENDARY' : 'EPIC', preferMissing: true });
-  for (const kind of ['weapon', 'pet', 'element']) if (!S.best[kind]) await openChest({ kind, minRarity: 'RARE' });
-  castleFx(false);
+  await openChest({ minRarity: 'EPIC' });
+  if (!S.best.weapon) await openChest({ kind: 'weapon', minRarity: 'RARE' });
+  if (!S.best.pet) await openChest({ kind: 'pet', minRarity: 'RARE' });
   playBgm('ending');
+  await playStory(r.ending, r.endBg);
+  await bannerOn('screen-story', r.endTitle);
+  await playStory([['narr', '{世界|せかい}は まだ すくわれて いない。しかし {勇者|ゆうしゃ}{HERO}の {冒険|ぼうけん}は はじまった ばかりだ！']], r.endBg);
+  showResult();
+}
 
-  if (S.route === 'maou') {
+// 魔王：ノーミスなら「さいごの いちげき」（8択の高難度問題）。正解で ふういん、それ以外は にげられる
+async function finishMaou() {
+  const r = G.routes.maou;
+  if (S.misses === 0) {
+    S.finalTried = true;
+    await wait(400);
+    flash(true);
+    shake();
+    sfx('bossAppear');
+    await playStory(r.finalTalk, r.bg);
+    show('screen-battle');
+    $('#screen-battle').classList.add('final');
+    $('#enemy').classList.add('rage');
+    sfx('warning');
+    await banner('FINAL ATTACK', { small: '魔王の さいごの いちげき！ 8つから えらべ！', cls: 'warning', ms: 1800 });
+    const hq = pickOne(S.hardPool);
+    S.shownQ = S.n + 1;
+    updateHud();
+    const res = await askQuestion(hq, { eight: true, label: 'さいごの いちげき（8たく）' });
+    S.log.push({ no: S.shownQ, id: hq.id, grade: hq.grade, type: hq.type, route: 'final', ok: res.ok, pos: S.current.correctIndex, n: 8 });
+    S.n++;
+    if (res.ok) {
+      S.correct++;
+      S.combo++;
+      S.maxCombo = Math.max(S.maxCombo, S.combo);
+      S.sealed = true;
+      sfx('correct');
+      burstText('せいかい！', 'good');
+      await wait(700);
+      await cutin({ heroImg: img(hero().img), name: ruby('{究極|きゅうきょく}{奥義|おうぎ}・{漢字|かんじ}{封印|ふういん}{陣|じん}'), sub: 'カンジ・シール・オブ・ゴッド', small: 'ふういんの いちげき', color: '#ffd54a' });
+      $('#magic-circle').classList.add('on');
+      flash(); shake(); bolts(5);
+      particles({ x: 58, y: 45, n: 50, spread: 260, colors: ['#fff', '#ffd54a', '#ff6fb5', '#38e1ff'] });
+      await wait(600);
+      await playStory(r.sealTalk, r.bg);
+      show('screen-battle');
+    } else {
+      S.misses++;
+      S.finalMiss++;
+      S.combo = 0;
+      sfx('wrong');
+      burstText('ざんねん！', 'bad');
+      await wait(500);
+      await showExplain(hq, null);
+    }
+    $('#screen-battle').classList.remove('final');
+  }
+
+  if (S.sealed) {
+    sfx('defeat');
+    restart($('#enemy'), 'dead');
+    flash();
+    await wait(900);
+    stopBgm();
+    sfx('victory');
+    $('#enemy-hud').style.opacity = 0;
+    $('#magic-circle').classList.remove('on');
+    await banner(`${ruby('{魔王|まおう}')}を<br>ふういんした！！`, { small: 'PERFECT CLEAR', cls: 'gold', ms: 2400 });
+    await openChest({ rarity: 'LEGENDARY' });
+    castleFx(false);
+    playBgm('ending');
     await playStory(r.ending, 'bg_throne');
     await bannerOn('screen-story', '{世界|せかい}に<br>{平和|へいわ}が おとずれた！');
   } else {
-    await playStory(r.ending, r.endBg);
-    await bannerOn('screen-story', r.endTitle);
-    await playStory([['narr', '{世界|せかい}は まだ すくわれて いない。しかし {勇者|ゆうしゃ}{HERO}の {冒険|ぼうけん}は はじまった ばかりだ！']], r.endBg);
+    await playStory(r.escapeTalk, r.bg);
+    show('screen-battle');
+    sfx('defeat');
+    restart($('#enemy'), 'dead');
+    await wait(900);
+    stopBgm();
+    $('#enemy-hud').style.opacity = 0;
+    $('#magic-circle').classList.remove('on');
+    await banner(`${ruby('{魔王|まおう}')}は<br>にげだした……！`, { small: 'でも 世界は まもられた！', cls: 'gold', ms: 2200 });
+    await openChest({ minRarity: 'EPIC' });
+    castleFx(false);
+    playBgm('ending');
+    await playStory(r.escapeEnding, 'bg_throne');
   }
   showResult();
 }
@@ -691,30 +963,38 @@ function showResult() {
   let end;
   let catchText;
   let title;
-  if (S.route === 'maou' && S.finalMiss === 0) {
+  let foot;
+  if (S.route === 'maou' && S.sealed) {
     end = 'TRUE END';
-    catchText = '{世界|せかい}を すくった！';
+    catchText = '{魔王|まおう}を ふういんした！ {完全|かんぜん}クリア！';
     title = 'でんせつの 漢字マスター';
+    foot = '{世界|せかい}に {平和|へいわ}が おとずれた！';
+  } else if (S.route === 'maou' && S.finalTried) {
+    end = 'GREAT END';
+    catchText = '{魔王|まおう}を たおした！ でも にげられた……';
+    title = '漢字の 大勇者';
+    foot = 'あと 1問！ さいごの いちげきを 見きって ふういんしよう！';
   } else if (S.route === 'maou') {
     end = 'BRAVE END';
-    catchText = '{魔王|まおう}を たおして {世界|せかい}を すくった！';
+    catchText = '{魔王|まおう}を おいはらって {世界|せかい}を まもった！';
     title = '漢字の 勇者';
+    foot = 'ノーミスで さいごの いちげきに ちょうせんしよう！';
   } else {
     const r = G.routes[S.route];
     end = 'HAPPY END';
     catchText = r.endTitle;
     title = { goblin: '村の ヒーロー', forest: '森の まもりびと', ruins: '町の まもりがみ' }[S.route];
+    foot = 'つぎは {魔王|まおう}を たおしに いこう！';
   }
-  const rank = acc >= 100 ? 'S' : acc >= 90 ? 'A' : acc >= 75 ? 'B' : acc >= 50 ? 'C' : 'D';
+  const rank = S.sealed ? 'S' : acc >= 95 ? 'A' : acc >= 80 ? 'B' : acc >= 60 ? 'C' : 'D';
   const isTrue = end === 'TRUE END';
-  const itemHtml = (kind, label, it) => {
+  const itemHtml = (label, it, extra = {}) => {
     if (!it) return `<div class="r-item"><div class="ri-kind">${label}</div><div class="ri-icon">？</div><div class="ri-name">なし</div></div>`;
-    const ri = G.rarities[it.rarity];
+    const ri = it.rarity ? G.rarities[it.rarity] : { color: it.color, label: 'ぞくせい' };
     const icon = it.img ? `<img src="${img(it.img)}" alt="">` : it.emoji;
-    return `<div class="r-item" style="--rc:${ri.color};--rcg:${ri.color}66"><div class="ri-kind">${label}</div><div class="ri-icon">${icon}</div><div class="ri-name">${ruby(it.name)}</div><div class="ri-rar">${ri.label}</div></div>`;
+    return `<div class="r-item" style="--rc:${ri.color};--rcg:${ri.color}66"><div class="ri-kind">${label}</div><div class="ri-icon">${icon}</div><div class="ri-name">${ruby(extra.name || it.name)}</div><div class="ri-rar">${ri.label}</div></div>`;
   };
-  const el = S.best.element;
-  const elItem = el ? { ...el, name: el.name + 'ぞくせい' } : null;
+  const el = S.element;
   $('#result-card').className = 'result-card' + (isTrue ? ' true' : '');
   $('#result-card').innerHTML = `
     <div class="r-top">
@@ -728,24 +1008,23 @@ function showResult() {
         <div class="r-stat">せいかい <b>${S.correct}<small> / ${total}</small></b></div>
         <div class="r-stat">せいかいりつ <b>${acc}<small>%</small></b></div>
         <div class="r-stat">さいだいコンボ <b>${S.maxCombo}</b></div>
+        ${S.saved ? `<div class="r-stat">ふせいだ ミス <b>${S.saved}</b></div>` : ''}
         <div class="r-stat">漢字パワー <b>${isTrue ? 'MAX' : S.power.toLocaleString()}</b></div>
         <div class="r-rank"><small>ランク</small><span class="r-rank-badge">${rank}</span></div>
       </div>
     </div>
     <div class="r-items">
-      ${itemHtml('weapon', 'ぶき', S.best.weapon)}
-      ${itemHtml('pet', 'なかま', S.best.pet)}
-      ${itemHtml('element', 'ぞくせい', elItem)}
+      ${itemHtml('ぶき', S.best.weapon)}
+      ${itemHtml('なかま', S.best.pet)}
+      ${itemHtml('ぞくせい', el, { name: el ? el.name + 'ぞくせい' : '' })}
     </div>
-    <div class="r-foot">${isTrue ? '🌟 WORLD PEACE 🌟<br>' : ''}${ruby(isTrue ? '{世界|せかい}に {平和|へいわ}が おとずれた！' : end === 'BRAVE END' ? 'つぎは ぜんもん せいかいで TRUE END を めざそう！' : 'つぎは {魔王|まおう}を たおしに いこう！')}<br><span class="r-grade">${settings.grade}年生モード ・ 漢字の勇者ケイト</span></div>`;
+    <div class="r-foot">${isTrue ? '🌟 WORLD PEACE 🌟<br>' : ''}${ruby(foot)}<br><span class="r-grade">${settings.grade}年生モード ・ 漢字の勇者ケイト</span></div>`;
   setBg($('#result-bg'), S.route === 'maou' ? 'bg_throne' : G.routes[S.route].endBg);
   show('screen-result');
-  if (isTrue) {
-    setTimeout(() => { sfx('fanfare'); }, 300);
-  }
+  if (isTrue) setTimeout(() => { sfx('fanfare'); }, 300);
 }
 
 // テスト用（URLに #debug を付けたときだけ）。自動プレイで全ルートを確認するのに使う
-if (location.hash.includes('debug')) window.__kanji = { get S() { return S; }, settings, speed, gacha, cutin, G: () => G };
+if (location.hash.includes('debug')) window.__kanji = { get S() { return S; }, settings, speed, gacha, cutin, choose, G: () => G };
 
 boot();

@@ -62,6 +62,11 @@ JOBS = {
     "w_flame": ("item", "single sword, red blade, flame pattern, fire, vertical", 2),
     "w_ice": ("item", "staff, ice staff, ice crystal, frost, blue glow", 1),
     "w_bow": ("item", "bow (weapon), holy bow, white and gold, glowing arrow, feathers", 1),
+    # レアモンスター・追加の仲間
+    "r_metal_slime": ("char", "no humans, solo, slime (creature), metallic silver slime, shiny metal, cute, smug face, sparkle", 2),
+    "r_gold_goblin": ("char", "no humans, solo, goblin, golden skin, carrying big treasure sack, gold coins, grin, running", 2),
+    "r_crystal_dragon": ("char", "no humans, solo, small crystal dragon, transparent blue crystal body, gem wings, sparkle, cute, standing", 2),
+    "p_leviathan": ("char", "no humans, solo, leviathan, cute sea serpent, blue scales, fins, water splash, friendly, smile", 2),
     "chest": ("item", "treasure chest, open chest, gold coins, glowing, sparkle", 1),
     # 背景（縦長）
     "bg_plains": ("bg", "grassland, blue sky, clouds, path, castle in distance, hills, sunny, bright", 1),

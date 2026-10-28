@@ -127,6 +127,7 @@
       <div class="combo" id="combo"></div>
       <div class="equip" id="equip"></div>
       <div class="fx-layer" id="fx-layer"></div>
+      <div class="skill-toasts" id="skill-toasts"></div>
     </div>
 
     <div class="quiz" id="quiz">
@@ -136,12 +137,7 @@
         <div class="q-sub" id="q-sub"></div>
         <div class="q-prompt" id="q-prompt"></div>
       </div>
-      <div class="answers" id="answers">
-        <button class="ans" data-i="0"><span class="ans-mark">A</span><span class="ans-text"></span></button>
-        <button class="ans" data-i="1"><span class="ans-mark">B</span><span class="ans-text"></span></button>
-        <button class="ans" data-i="2"><span class="ans-mark">C</span><span class="ans-text"></span></button>
-        <button class="ans" data-i="3"><span class="ans-mark">D</span><span class="ans-text"></span></button>
-      </div>
+      <div class="answers" id="answers"></div>
     </div>
 
     <!-- まちがえたときの解説 -->
@@ -175,8 +171,18 @@
       <div class="gacha-item" id="gacha-item"></div>
       <div class="gacha-rarity" id="gacha-rarity"></div>
       <div class="gacha-name" id="gacha-name"></div>
+      <div class="gacha-desc" id="gacha-desc"></div>
       <div class="gacha-new" id="gacha-new">NEW!!</div>
       <div class="gacha-tap">タップで つぎへ</div>
+    </div>
+  </div>
+
+  <!-- ぞくせいを えらぶ -->
+  <div class="overlay" id="choose">
+    <div class="choose-stage">
+      <div class="choose-title" id="choose-title"></div>
+      <div class="choose-sub" id="choose-sub"></div>
+      <div class="choose-cards" id="choose-cards"></div>
     </div>
   </div>
 
@@ -184,7 +190,7 @@
   <div class="overlay cutin" id="cutin">
     <div class="cutin-band">
       <img id="cutin-hero" alt="">
-      <div class="cutin-text"><small id="cutin-small">ひっさつわざ</small><b id="cutin-name"></b></div>
+      <div class="cutin-text"><small id="cutin-small">ひっさつわざ</small><b id="cutin-name"></b><i id="cutin-sub"></i></div>
     </div>
   </div>
 

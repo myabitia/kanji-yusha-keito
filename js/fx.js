@@ -111,10 +111,11 @@ export async function banner(htmlBig, { small = '', cls = '', ms = 1700 } = {}) 
   b.classList.remove('show');
 }
 
-export async function cutin({ heroImg, name, small = 'ひっさつわざ', color = '#ff3d7f' }) {
+export async function cutin({ heroImg, name, small = 'ひっさつわざ', sub = '', color = '#ff3d7f' }) {
   const c = $('#cutin');
   $('#cutin-hero').src = heroImg;
   $('#cutin-name').innerHTML = name;
+  $('#cutin-sub').textContent = sub;
   $('#cutin-small').textContent = small;
   c.style.setProperty('--cc', color);
   sfx('special');
@@ -124,7 +125,7 @@ export async function cutin({ heroImg, name, small = 'ひっさつわざ', color
 }
 
 // ガチャ（宝箱）演出。タップか時間で閉じる
-export function gacha({ kindLabel, item, rarity, rarityInfo, isNew }) {
+export function gacha({ kindLabel, item, rarity, rarityInfo, isNew, desc = '' }) {
   return new Promise((resolve) => {
     const g = $('#gacha');
     g.className = 'overlay show';
@@ -135,6 +136,7 @@ export function gacha({ kindLabel, item, rarity, rarityInfo, isNew }) {
     itemEl.innerHTML = item.img ? `<img src="${img(item.img)}" alt="">` : `<span>${item.emoji || '🎁'}</span>`;
     $('#gacha-rarity').innerHTML = `<span class="stars">${'★'.repeat(rarityInfo.stars)}</span>${rarityInfo.label}${rarity === 'LEGENDARY' ? '!!' : ''}`;
     $('#gacha-name').innerHTML = ruby(item.name);
+    $('#gacha-desc').innerHTML = desc;
     const chest = $('#gacha-chest');
     restart(chest, 'x');
     sfx('chest');
@@ -212,4 +214,36 @@ export function castleFx(on) {
   const b = document.createElement('div');
   b.className = 'screen-bolt';
   el.appendChild(b);
+}
+
+// スキル発動のお知らせ（フィールドの上に 小さく つみかさなる）
+export function toast(html, color = '#ffd54a', ms = 1800) {
+  const box = $('#skill-toasts');
+  if (!box) return;
+  const d = document.createElement('div');
+  d.className = 'skill-toast';
+  d.style.setProperty('--tc', color);
+  d.innerHTML = html;
+  box.appendChild(d);
+  setTimeout(() => d.remove(), ms / speed.x);
+}
+
+// 2つから1つ えらぶ（ぞくせい）。えらんだ index を返す
+export function choose({ title, sub, cards }) {
+  return new Promise((resolve) => {
+    const o = $('#choose');
+    $('#choose-title').innerHTML = title;
+    $('#choose-sub').innerHTML = sub || '';
+    const wrap = $('#choose-cards');
+    wrap.innerHTML = '';
+    cards.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'choose-card';
+      b.style.setProperty('--cc', c.color || '#fff');
+      b.innerHTML = `<div class="cc-icon">${c.icon}</div><div class="cc-name">${c.name}</div><div class="cc-skill">${c.skill}</div><div class="cc-desc">${c.desc}</div>`;
+      b.onclick = () => { o.classList.remove('show'); resolve(i); };
+      wrap.appendChild(b);
+    });
+    restart(o, 'show');
+  });
 }

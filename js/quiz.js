@@ -27,10 +27,19 @@ export const shuffle = (a) => {
   return a;
 };
 
-export function makeChoices(q) {
-  const wrong = shuffle(q.wrong).slice(0, 3);
+// nWrong: まちがいの数（ふつうは3＝4択、さいごの いちげきは7＝8択）
+export function makeChoices(q, nWrong = 3) {
+  const wrong = shuffle(q.wrong).slice(0, nWrong);
   const choices = shuffle([q.answer, ...wrong]);
   return { choices, correctIndex: choices.indexOf(q.answer) };
+}
+
+// 魔王の「さいごの いちげき」用（8択）。えらんだ学年の問題を優先、なければ下の学年
+export async function loadHard(grade) {
+  const res = await fetch('data/questions/hard.json');
+  const list = (await res.json()).questions.filter((q) => q.grade <= grade);
+  const top = Math.max(...list.map((q) => q.grade));
+  return list.filter((q) => q.grade === top);
 }
 
 export class Deck {

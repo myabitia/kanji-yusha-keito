@@ -242,6 +242,22 @@ for (const e of entries.filter((x) => x.kind === 'Q')) {
     kanji: kanjiIn(e.big + e.answer), learn: [...e.answer].length <= 8 ? e.answer : '', diff: e.diff }, e.where);
 }
 
+// ---------- 魔王の「さいごの いちげき」用 高難度問題（8択） ----------
+const hard = [];
+read('data/source/hard.txt').split(/\r?\n/).forEach((line, idx) => {
+  line = line.trim();
+  if (!line || line.startsWith('#')) return;
+  const where = `hard.txt:${idx + 1}`;
+  const [kind, type, big, prompt, answer, wrongs, explain] = line.split('|');
+  if (kind !== 'H') { errors.push(`${where}: 行の種類が不明`); return; }
+  if (!LABEL[type]) { errors.push(`${where}: 不明なタイプ ${type}`); return; }
+  const wrong = [...new Set(wrongs.split(',').map((x) => x.trim()).filter(Boolean))];
+  if (wrong.length !== 7 || wrong.includes(answer)) { errors.push(`${where}: まちがいは ちがうものを 7こ（いま ${wrong.length}こ）`); return; }
+  const grade = gradeOf([big, prompt, answer, ...wrong, explain].join(''), where);
+  hard.push({ id: `h${String(hard.length + 1).padStart(3, '0')}`, type, grade, big, prompt, answer, wrong, explain, learn: answer });
+});
+for (let g = 1; g <= 6; g++) if (!hard.some((q) => q.grade === g)) warnings.push(`高難度問題: ${g}年生の問題が ありません`);
+
 // ---------- 出力 ----------
 for (const q of questions) for (const k of Object.keys(q)) if (q[k] === '' || q[k] === undefined || (Array.isArray(q[k]) && !q[k].length && k !== 'wrong')) delete q[k];
 const byGrade = {};
@@ -263,8 +279,10 @@ for (let g = 1; g <= 6; g++) {
   const body = list.map((q) => JSON.stringify(q)).join(',\n');
   fs.writeFileSync(path.join(dir, `g${g}.json`), `{"note":${JSON.stringify(NOTE)},"grade":${g},"count":${list.length},"questions":[\n${body}\n]}\n`);
 }
-fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ note: NOTE, count: questions.length, byGrade, byType }, null, 1));
-console.log(`OK: ${questions.length}問を書き出しました`);
+fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ note: NOTE, count: questions.length, byGrade, byType, hard: hard.length }, null, 1));
+fs.writeFileSync(path.join(dir, 'hard.json'), `{"note":${JSON.stringify(NOTE)},"questions":[\n${hard.map((q) => JSON.stringify(q)).join(',\n')}\n]}\n`);
+console.log(`OK: ${questions.length}問 ＋ 高難度 ${hard.length}問を書き出しました`);
+console.log('高難度（学年別）:', Object.fromEntries([1, 2, 3, 4, 5, 6].map((g) => [g, hard.filter((q) => q.grade === g).length])));
 console.log('学年別:', byGrade);
 console.log('タイプ別:', byType);
 let cum = 0;
